@@ -15,7 +15,7 @@
  *    Jevon Wright - initial API and implementation
  ****************************************************************************/
 
-namespace Html2Text;
+namespace stghHtml2Text;
 
 class Html2Text {
 
@@ -34,12 +34,18 @@ class Html2Text {
 	 * @throws Html2TextException if the HTML could not be loaded as a {@link DOMDocument}
 	 */
 	static function convert($html) {
+		// replace &nbsp; with spaces
+		$html = str_replace("&nbsp;", " ", $html);
+
 		$html = static::fixNewlines($html);
 
+		libxml_use_internal_errors(true);
+		$html = preg_replace('/charset=(.)*?\"/', 'charset=utf-8"', $html);
 		$doc = new \DOMDocument();
-		if (!$doc->loadHTML($html)) {
+		if (!$doc->loadHTML('<?xml encoding="UTF-8">'.$html)) {
 			throw new Html2TextException("Could not load HTML - badly formed?", $html);
 		}
+		libxml_use_internal_errors(false);
 
 		$output = static::iterateOverNode($doc);
 
@@ -137,14 +143,27 @@ class Html2Text {
 			case "h4":
 			case "h5":
 			case "h6":
-				// add two newlines
+			case "ol":
+			case "ul":
+				// add two newlines, second line is added below
 				$output = "\n";
 				break;
 
+			case "td":
+			case "th":
+				// add tab char to separate table fields
+			   $output = "\t";
+			   break;
+
+			case "tr":
 			case "p":
 			case "div":
 				// add one line
 				$output = "\n";
+				break;
+
+			case "li":
+				$output = "- ";
 				break;
 
 			default:
@@ -201,12 +220,7 @@ class Html2Text {
 			case "a":
 				// links are returned in [text](link) format
 				$href = $node->getAttribute("href");
-				if ($href == null) {
-					// it doesn't link anywhere
-					if ($node->getAttribute("name") != null) {
-						$output = "[$output]";
-					}
-				} else {
+				if (! is_null($href)) {
 					if ($href == $output || $href == "mailto:$output" || $href == "http://$output" || $href == "https://$output") {
 						// link to the same address: just use link
 						$output;
@@ -222,6 +236,11 @@ class Html2Text {
 						$output .= "\n";
 						break;
 				}
+				break;
+
+			case "li":
+				$output .= "\n";
+				break;
 
 			default:
 				// do nothing

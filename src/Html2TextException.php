@@ -16,7 +16,7 @@
  *    Jevon Wright - initial API and implementation
  ****************************************************************************/
 
-namespace Html2Text;
+namespace stghHtml2Text;
 
 class Html2TextException extends \Exception {
 	var $more_info;
